@@ -3,6 +3,7 @@ package stretcher
 import (
 	"bufio"
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/AdRoll/goamz/aws"
 	"github.com/AdRoll/goamz/s3"
 )
@@ -107,6 +109,17 @@ func getS3(u *url.URL) (io.ReadCloser, error) {
 	return bucket.GetReader(u.Path)
 }
 
+func getGCS(u *url.URL) (io.ReadCloser, error) {
+	var err error
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bucket := client.Bucket(u.Host).Object(u.Path)
+	return bucket.NewReader(ctx)
+}
+
 func getFile(u *url.URL) (io.ReadCloser, error) {
 	return os.Open(u.Path)
 }
@@ -134,6 +147,8 @@ func getURL(urlStr string) (io.ReadCloser, error) {
 	switch u.Scheme {
 	case "s3":
 		return getS3(u)
+	case "gs":
+		return getGCS(u)
 	case "http", "https":
 		return getHTTP(u)
 	case "file":
