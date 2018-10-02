@@ -109,15 +109,20 @@ func getS3(u *url.URL) (io.ReadCloser, error) {
 	return bucket.GetReader(u.Path)
 }
 
-func getGCS(u *url.URL) (io.ReadCloser, error) {
+func getGS(u *url.URL) (io.ReadCloser, error) {
 	var err error
+	trimPath := strings.Trim(u.Path, "/")
+
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	bucket := client.Bucket(u.Host).Object(u.Path)
-	return bucket.NewReader(ctx)
+	bucket, err := client.Bucket(u.Host).Object(trimPath).NewReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return bucket, nil
 }
 
 func getFile(u *url.URL) (io.ReadCloser, error) {
@@ -148,13 +153,13 @@ func getURL(urlStr string) (io.ReadCloser, error) {
 	case "s3":
 		return getS3(u)
 	case "gs":
-		return getGCS(u)
+		return getGS(u)
 	case "http", "https":
 		return getHTTP(u)
 	case "file":
 		return getFile(u)
 	default:
-		return nil, fmt.Errorf("manifest URL scheme must be s3 or http(s) or file: %s", urlStr)
+		return nil, fmt.Errorf("manifest URL scheme must be s3, gs, http(s) or file: %s", urlStr)
 	}
 }
 
